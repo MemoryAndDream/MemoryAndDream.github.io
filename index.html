@@ -5,14 +5,7 @@
 
 <body>
 
-<h1>MP3 Recorder</h1>
-
-<p>Work on chrome or firefox.You should choose share audio when sharing.</p>
-<p>The audio never leaves the browser, my server is never involved
-after providing the page. The output is limit at 10MB for memory concern</p>
-<p>Based on the reference：
-<a href="https://aws.nlited.org/p599.htm">here</a>.Change audio source from microphone to system audio.</p>
-<br/>
+<h1>MP3在线录制</h1>
 <p>本工具可以录制在线视频的音乐，直接浏览器生成，数据不会传服务器</p>
 <p>在线录制电脑上的音频，点击power，选择分享整个屏幕或者对应标签页(没有影响)，勾选分享音频，然后点击start即可开始录制，点击stop结束录制，按文件名下载</p>
 <p>之后你可以修改文件名，然后上传到网易云音乐的云盘，这样你就可以在手机上听或者下载音乐了</p>
@@ -22,9 +15,9 @@ after providing the page. The output is limit at 10MB for memory concern</p>
   <source type="audio/mpeg">
 </audio><br>
 
-<button id="btnPower" onclick="onPower()">Power</button>
-<button id="btnRecord" onclick="onRecord()" disabled="">Record</button>
-<button id="btnStop" onclick="onStop()" disabled="">Stop</button>
+<button id="btnPower" onclick="onPower()">启动/重置(记得勾选分享音频)</button>
+<button id="btnRecord" onclick="onRecord()" disabled="">开始录音</button>
+<button id="btnStop" onclick="onStop()" disabled="">结束录音</button>
 
 <p>
 <a id="DownloadLink" download="recorded.mp3">recorded.mp3</a>
