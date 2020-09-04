@@ -15,18 +15,21 @@
 
 <audio id="AudioPlayer" controls="controls">
   <source type="audio/mpeg">
-</audio><br>
-
+</audio><br/>
+<br/>
 <button id="btnPower" onclick="onPower()">启动/重置(记得勾选分享音频)</button>
 <button id="btnRecord" onclick="onRecord()" disabled="">开始录音</button>
 <button id="btnStop" onclick="onStop()" disabled="">结束录音</button>
 
-
 <br/>
-<span>下载文件:</span><a id="DownloadLink" download="recorded.mp3">recorded.mp3</a>
+<br/>
+    mp3压缩文件:<a id="DownloadLink" download="recorded.mp3">recorded.mp3</a>
+<br/>
+<br/>
+    wav无损音质(文件较大):<a id="DownloadLink2" download="recorded.wav">recorded.wav</a>
 <span id="status"></span>
-</span>
-
+<br/>
+<br/>
 <div id="log" style="width:100%; border:solid thin; margin:8px; padding:4px;">
   Waiting for scripts...<br>
 Window loaded.<br>
@@ -77,7 +80,14 @@ var gNode= null;        //The audio processor node
 var gIsLame= false;     //Has lame.min.js been loaded?
 var gLame= null;        //The LAME encoder library
 var gEncoder= null;     //The MP3 encoder object
+var wavEncoder= null;
+
 var gStrmMp3= [];       //Collection of MP3 buffers
+
+var gStrmWav= [];
+var lWavData=[]
+var rWavData=[]
+
 var gIsRecording= false;
 var gCfg= {             //Encoder configuration
   chnlCt:         2,    //1=mono, 2=stereo
@@ -153,6 +163,8 @@ function onUserMedia(stream) {
   } else if(!gIsLame) {
     log("Fetching encoder...");
     loadScript("lame","js/lame.js",LameCreate);
+    loadScript("wav","js/WavAudioEncoder.js",wavCreate);
+
   } else {
     LameCreate();
   }
@@ -171,6 +183,11 @@ function LameCreate() {
     document.getElementById('btnRecord').disabled= false;
     document.getElementById('btnStop').disabled= false;
   }
+}
+
+function wavCreate() {
+    wavEncoder = new WavAudioEncoder(48000, 2)
+
 }
 
 //Create the mp3 encoder object.
@@ -255,6 +272,7 @@ function onStop(btn) {
       gStrmMp3.push(mp3);
     //Present the mp3 stream on the page.
     showMp3(gStrmMp3);
+    showWav(gStrmWav)
     log("STOP");
   }
 }
@@ -267,14 +285,28 @@ function onAudioProcess(e) {
     return;
   var inBuf= e.inputBuffer;
 
+
+
   var leftsamples= inBuf.getChannelData(0);
   var rightsamples= inBuf.getChannelData(0);
+
+   //wav process
+
+  var sampleCt= leftsamples.length;
+  for(var n1=0;n1<sampleCt;n1++) {
+  lWavData.push(leftsamples[n1])
+        rWavData.push(rightsamples[n1])
+  }
+
   var leftsampleCt= leftsamples.length;
-   var rightsampleCt= rightsamples.length;
+    var rightsampleCt= rightsamples.length;
   //Convert floating-point to 16bit signed int.
   //This may modify the number of samples.
   var leftsamples16= convertFloatToInt16(leftsamples);
    var rightsamples16= convertFloatToInt16(rightsamples);
+
+
+
   if(leftsamples16.length > 0) {
    gPcmCt+= leftsamples16.length*2;
    gPcmCt+= rightsamples.length*2;
@@ -288,6 +320,9 @@ function onAudioProcess(e) {
       gMp3Ct+= mp3Ct;
     }
     status("%d / %d: %2.2f%%",gPcmCt,gMp3Ct,(gMp3Ct*100)/gPcmCt);
+
+
+
   }
 }
 
@@ -316,6 +351,21 @@ function showMp3(mp3) {
   var audio= document.getElementById('AudioPlayer');
   var download= document.getElementById('DownloadLink');
   audio.src= url;
+  download.href= url;
+}
+
+function showWav(wav) {
+    var wavBuf= wavEncoder.encode([lWavData,rWavData])
+
+
+  //Consolidate the collection of MP3 buffers into a single data Blob.
+  // var blob= new Blob(gStrmWav,{type: 'audio/wav'});
+  var blob = wavEncoder.finish(['audio/wav'])
+
+  //Create a URL to the blob.
+  var url= window.URL.createObjectURL(blob);
+  //Use the blob as the source for link and audio control
+  var download= document.getElementById('DownloadLink2');
   download.href= url;
 }
 </script>
