@@ -215,7 +215,7 @@ function PowerOff() {
     log("Power OFF.");
     document.getElementById('btnRecord').disabled= true;
     document.getElementById('btnStop').disabled= true;
-    captureStream.getTracks().forEach(track => track.stop());
+
 
   }
 }
@@ -275,6 +275,7 @@ function onStop(btn) {
     showMp3(gStrmMp3);
     showWav(gStrmWav)
     log("STOP");
+    captureStream.getTracks().forEach(track => track.stop());
   }
 }
 
