@@ -81,7 +81,7 @@ var gIsLame= false;     //Has lame.min.js been loaded?
 var gLame= null;        //The LAME encoder library
 var gEncoder= null;     //The MP3 encoder object
 var wavEncoder= null;
-
+var captureStream=null;
 var gStrmMp3= [];       //Collection of MP3 buffers
 
 var gStrmWav= [];
@@ -107,7 +107,6 @@ function onPower(btn) {
   }
 }
 async function startCapture() {
-  let captureStream = null;
 
   try {
     captureStream = await navigator.mediaDevices.getDisplayMedia({audio: { autoGainControl:false,echoCancellation:false,
@@ -137,8 +136,8 @@ function PowerOn() {
       log("ERR: Unable to create AudioContext.");
     } else {
       // navigator.getUserMedia(caps,onUserMedia,onFail);
-      recorderStream=startCapture()
-        recorderStream.then(v =>{
+        captureStream = startCapture()
+        captureStream.then(v =>{
             audio_track = v.getAudioTracks()
     audio_steam = new MediaStream(audio_track)
         onUserMedia(audio_steam)}
@@ -216,6 +215,8 @@ function PowerOff() {
     log("Power OFF.");
     document.getElementById('btnRecord').disabled= true;
     document.getElementById('btnStop').disabled= true;
+    captureStream.getTracks().forEach(track => track.stop());
+
   }
 }
 
