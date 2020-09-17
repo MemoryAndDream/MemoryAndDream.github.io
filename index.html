@@ -87,13 +87,16 @@ var gStrmMp3= [];       //Collection of MP3 buffers
 var gStrmWav= [];
 var lWavData=[]
 var rWavData=[]
+var lMp3Data=[]
+var rMp3Data=[]
+
 
 var gIsRecording= false;
 var gCfg= {             //Encoder configuration
   chnlCt:         2,    //1=mono, 2=stereo
-  bufSz:          4096, //input buffer size (bytes), 16bit signed int.
-  sampleRate:     44100,//Input sample rate (samples per second)
-  bitRate:        128    //Output bit rate (9-128)
+  bufSz:          16384, //input buffer size (bytes), 16bit signed int.
+  sampleRate:     48000,//Input sample rate (samples per second)
+  bitRate:        192    //Output bit rate (9-128)
 };
 var gPcmCt= 0;          //Total input bytes
 var gMp3Ct= 0;          //Total output bytes
@@ -110,12 +113,23 @@ async function startCapture() {
 
   try {
     captureStream = await navigator.mediaDevices.getDisplayMedia({audio: { autoGainControl:false,echoCancellation:false,
-                googleAutoGainControl:false,noiseSuppression:false
+               noiseSuppression:false
           } ,video: true});
   } catch(err) {
     console.error("Error: " + err);
   }
   return captureStream;
+}
+
+function Float32Concat(first, second)
+{
+    var firstLength = first.length,
+        result = new Float32Array(firstLength +second.length);
+
+    result.set(first);
+    result.set(second, firstLength);
+
+    return result;
 }
 
 function PowerOn() {
@@ -124,18 +138,12 @@ function PowerOn() {
   try {
     //Browser compatibility
     window.AudioContext= window.AudioContext || window.webkitAudioContext || AudioContext;
-    navigator.getUserMedia= navigator.getUserMedia
-      || navigator.webkitGetUserMedia
-      || navigator.mozGetUserMedia
-      || navigator.msGetUserMedia
-      || MediaDevices.getUserMedia;
 
     //test
 
     if(!(gAudio= new window.AudioContext())) {
       log("ERR: Unable to create AudioContext.");
     } else {
-      // navigator.getUserMedia(caps,onUserMedia,onFail);
         captureStream = startCapture()
         captureStream.then(v =>{
             audio_track = v.getAudioTracks()
@@ -156,7 +164,6 @@ function PowerOn() {
 
 //Called when audio capture has been created.
 function onUserMedia(stream) {
-    console.log(stream);
   if(!(gAudioSrc= gAudio.createMediaStreamSource(stream))) {
     log("ERR: Unable to create audio source.");
   } else if(!gIsLame) {
@@ -185,7 +192,7 @@ function LameCreate() {
 }
 
 function wavCreate() {
-    wavEncoder = new WavAudioEncoder(48000, 2)
+    wavEncoder = new WavAudioEncoder(48000, 1)
 
 }
 
@@ -267,6 +274,16 @@ function onStop(btn) {
     gAudioSrc.disconnect(gNode);
     gNode.disconnect();
     gIsRecording= false;
+    console.log(lMp3Data)
+      var mp3buf= gEncoder.encodeBuffer(lMp3Data,rMp3Data);
+    var mp3Ct= mp3buf.length;
+    console.log(mp3Ct)
+    if(mp3Ct>0) {
+      //Add buffer to in-memory output stream.
+      gStrmMp3.push(mp3buf);
+    }
+
+
     //Flush the last mp3 buffer.
     var mp3= gEncoder.flush();
     if(mp3.length>0)
@@ -290,15 +307,13 @@ function onAudioProcess(e) {
 
 
   var leftsamples= inBuf.getChannelData(0);
-  var rightsamples= inBuf.getChannelData(0);
+  var rightsamples= inBuf.getChannelData(1);
 
    //wav process
 
   var sampleCt= leftsamples.length;
-  for(var n1=0;n1<sampleCt;n1++) {
-  lWavData.push(leftsamples[n1])
-        rWavData.push(rightsamples[n1])
-  }
+  lWavData = Float32Concat(lWavData, leftsamples)
+    rWavData =Float32Concat(rWavData, rightsamples)
 
   var leftsampleCt= leftsamples.length;
     var rightsampleCt= rightsamples.length;
@@ -307,22 +322,24 @@ function onAudioProcess(e) {
   var leftsamples16= convertFloatToInt16(leftsamples);
    var rightsamples16= convertFloatToInt16(rightsamples);
 
-
+  lMp3Data = Float32Concat(lMp3Data, leftsamples16)
+  rMp3Data = Float32Concat(rMp3Data, rightsamples16)
 
   if(leftsamples16.length > 0) {
    gPcmCt+= leftsamples16.length*2;
-   gPcmCt+= rightsamples.length*2;
+   gPcmCt+= rightsamples16.length*2;
 
-    //Encode PCM to mp3
-    var mp3buf= gEncoder.encodeBuffer(leftsamples16,rightsamples16);
-    var mp3Ct= mp3buf.length;
-    if(mp3Ct>0) {
-      //Add buffer to in-memory output stream.
-      gStrmMp3.push(mp3buf);
-      gMp3Ct+= mp3Ct;
-    }
-    status("%d / %d: %2.2f%%",gPcmCt,gMp3Ct,(gMp3Ct*100)/gPcmCt);
-
+   //实时编码说不定是坑的关键
+    // //Encode PCM to mp3
+    // var mp3buf= gEncoder.encodeBuffer(leftsamples16,rightsamples16);
+    // var mp3Ct= mp3buf.length;
+    // if(mp3Ct>0) {
+    //   //Add buffer to in-memory output stream.
+    //   gStrmMp3.push(mp3buf);
+    //   gMp3Ct+= mp3Ct;
+    // }
+    status("%d",gPcmCt);
+    //
 
 
   }
@@ -346,6 +363,7 @@ function convertFloatToInt16(inFloat) {
 //as a download link and content in the audio control.
 function showMp3(mp3) {
   //Consolidate the collection of MP3 buffers into a single data Blob.
+
   var blob= new Blob(gStrmMp3,{type: 'audio/mp3'});
   //Create a URL to the blob.
   var url= window.URL.createObjectURL(blob);
@@ -357,7 +375,7 @@ function showMp3(mp3) {
 }
 
 function showWav(wav) {
-    var wavBuf= wavEncoder.encode([lWavData,rWavData])
+    var wavBuf= wavEncoder.encode([lWavData])
 
 
   //Consolidate the collection of MP3 buffers into a single data Blob.
